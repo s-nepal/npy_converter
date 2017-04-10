@@ -18,65 +18,16 @@
 #include <pcl/io/io.h>
 #include <pcl/io/pcd_io.h>
 
-#include <opencv2/core/core.hpp>
-#include <opencv2/highgui/highgui.hpp>
-
 #include "cnpy.h"
-#include <complex>
 #include <cstdlib>
 #include <iostream>
 #include <fstream>    
-#include <map>
 #include <string>
 #include <vector>
-
-
-using namespace cv ;
 
 using namespace std;
 
 typedef pcl::PointXYZI PointT;
-struct CloudBoundary
-{
-	float x_min;
-	float x_max;
-	float y_min;
-	float y_max;
-	float z_min;
-	float z_max;
-};
-typedef struct CloudBoundary CloudBoundaryT;
-
-void showPoint(PointT& p)
-{
-	std::cout<<"("<< p.x<<" ,"<<p.y<<" ,"<<p.z<<" ,"<<p.intensity<<")"<<std::endl;
-}
-
-void showCloudBoundary (CloudBoundaryT& cb)
-{
-	std::cout<< "x_min = " <<cb.x_min <<", x_max = "<<cb.x_max<<std::endl;
-	std::cout<< "y_min = " <<cb.y_min <<", y_max = "<<cb.y_max<<std::endl;
-	std::cout<< "z_min = " <<cb.z_min <<", z_max = "<<cb.z_max<<std::endl;
-}
-
-void updateCloudBoundary(CloudBoundaryT& cb, PointT& p)
-{
-	if (p.x < cb.x_min)
-		cb.x_min = p.x;
-	if (p.x > cb.x_max)
-		cb.x_max = p.x;
-	if (p.y < cb.y_min)
-		cb.y_min = p.y;
-	if (p.y > cb.y_max)
-		cb.y_max = p.y;
-	if (p.z < cb.z_min)
-		cb.z_min = p.z;
-	if (p.z > cb.z_max)
-		cb.z_max = p.z;
-}
-
-
-int delay = 1000; // delay between successive LiDAR frames in ms
 
 const float x_MIN = 0.0;
 const float x_MAX = 40.0;
@@ -86,7 +37,7 @@ const float z_MIN = -2.0;	////TODO : to be determined ....
 const float z_MAX = 0.4;
 const float x_DIVISION = 0.1;
 const float y_DIVISION = 0.1;
-const float z_DIVISION = 0.4;
+const float z_DIVISION = 0.4;	// was 0.2 originally
 
 int X_SIZE = (int)((x_MAX-x_MIN)/x_DIVISION)+1;
 int Y_SIZE = (int)((y_MAX-y_MIN)/y_DIVISION)+1;
@@ -124,15 +75,6 @@ void npy_saver(float data[], int cloud_size, int frame_counter, string map_flag,
 
 int main()
 {
-	float *data = new float[3]; 
-	data[0] = 84;
-	data[1] = 85;
-	data[2] = 86;
-	const unsigned int shape[] = {3, 1};
-	cnpy::npy_save("arr_1.npy", data, shape, 1, "w");
-
-	delete[] data;
-
 	pcl::console::TicToc tt;
 
 	// load point cloud
@@ -146,8 +88,6 @@ int main()
 	// while (!viewer->wasStopped ())
 	while(1)
 	{ 
-	    // std::cerr << "=== LiDAR Data Load Start ===\n", tt.tic ();
-
 	    int32_t num = 1000000;
 	    float *data = (float*)malloc(num*sizeof(float));
 
@@ -172,9 +112,6 @@ int main()
 
 		num = fread(data,sizeof(float),num,fp)/4;
 
-		CloudBoundaryT cloud_boundary = {0.0 ,0.0 ,0.0 ,0.0 ,0.0 ,0.0};
-		//showCloudBoundary(cloud_boundary);
-
 		//3D grid box index
 		int X = 0;	
 		int Y = 0;
@@ -196,12 +133,14 @@ int main()
 		max_height_map.resize(X_SIZE);
 		density_map.resize(X_SIZE);
 		intensity_map.resize(X_SIZE);
+
 		for (int i=0; i<X_SIZE; i++)
 		{
 			height_maps[i].resize(Y_SIZE);
 			max_height_map[i].resize(Y_SIZE);
 			density_map[i].resize(Y_SIZE);
 			intensity_map[i].resize(Y_SIZE);
+
 			for (int j=0; j<Y_SIZE; j++)
 			{
 				height_maps[i][j].resize(Z_SIZE);
@@ -216,7 +155,6 @@ int main()
 				intensity_map[i][j] = 0;	//value stored inside always >= 0 && <=255 (range=0~255, no unit)
 			}
 		}
-
 
 		//allocate point cloud for temporally data visualization (only used for validation)
 		std::vector<pcl::PointCloud<PointT> > height_cloud_vec;
@@ -269,25 +207,22 @@ int main()
 				
 					grid_point.intensity = density_map[X][Y];
 					density_cloud->points.push_back(grid_point);
-					// std::cout << grid_point.x << std::endl;
 				}
-		
-		    	// cloud->points.push_back(point);
 			}
 		    px+=4; py+=4; pz+=4; pr+=4;
 		}
 
-		for (int X=0; X<X_SIZE; X++)
-			for (int Y=0; Y<Y_SIZE; Y++)
-			{
+		for (int X=0; X<X_SIZE; X++){
+			for (int Y=0; Y<Y_SIZE; Y++){
 				density_map[X][Y] = log(density_map[X][Y]+1)/log(64);
+			}
+		}	
+		
+		// iterate through each point cloud and save the data in .npy format
 
-			}	
-	
 		pcl::PointCloud<PointT>::Ptr cloud_demo (new pcl::PointCloud<PointT>);
 
-		for (int k = 0; k<Z_SIZE; k++)
-		{
+		for (int k = 0; k<Z_SIZE; k++){
 			*cloud_demo = height_cloud_vec[k];
 
 		  	int cloud_size = cloud_demo -> size();
@@ -295,7 +230,6 @@ int main()
 			int data_ctr = 0;
 
 			for(int i = 0; i < cloud_size; i++){
-			
 				height_data[data_ctr++] = cloud_demo->at(i).x;
 				height_data[data_ctr++] = cloud_demo->at(i).y;
 				height_data[data_ctr++] = cloud_demo->at(i).intensity;
@@ -305,15 +239,12 @@ int main()
 			delete[] height_data;
 		}
 
-		// std::cout <<"Show density map ... "<< std::endl;
 		*cloud_demo = *density_cloud;
-
 		int cloud_size = cloud_demo -> size();
 	  	float *density_data = new float[3 * cloud_size];	// multiplied by 3 bcz. each point has 3 co-ordinates (xyi)
 		int data_ctr = 0;
 
 		for(int i = 0; i < cloud_size; i++){
-		
 			density_data[data_ctr++] = cloud_demo->at(i).x;
 			density_data[data_ctr++] = cloud_demo->at(i).y;
 			density_data[data_ctr++] = cloud_demo->at(i).intensity;
@@ -323,7 +254,6 @@ int main()
 		npy_saver(density_data, cloud_size, frame_counter, "density", -1);
 		delete[] density_data;
 	
-		// std::cout <<"Show intensity map ... "<< std::endl;
 		*cloud_demo=*intensity_cloud;
 
 		cloud_size = cloud_demo -> size();
@@ -348,7 +278,6 @@ int main()
 		delete data;
 	}
 
-	std::cout << "Finished" << std::endl;
 	return 0;  
 }
 
