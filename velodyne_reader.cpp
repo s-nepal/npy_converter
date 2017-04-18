@@ -7,17 +7,12 @@
 #include <unistd.h>
 #include <sstream>
 #include <iomanip>  
-
 #include <vector>
-
 #include <pcl/visualization/cloud_viewer.h>
-
 #include <pcl/console/time.h>
-
 #include <iostream>
 #include <pcl/io/io.h>
 #include <pcl/io/pcd_io.h>
-
 #include "cnpy.h"
 #include <cstdlib>
 #include <iostream>
@@ -212,6 +207,11 @@ int main()
 		    px+=4; py+=4; pz+=4; pr+=4;
 		}
 
+		// normalization
+		for (int i=0; i < density_cloud->size(); i++)
+            density_cloud->at(i).intensity = log(density_cloud->at(i).intensity+1)/log(64);
+
+        // not used right now
 		for (int X=0; X<X_SIZE; X++){
 			for (int Y=0; Y<Y_SIZE; Y++){
 				density_map[X][Y] = log(density_map[X][Y]+1)/log(64);
