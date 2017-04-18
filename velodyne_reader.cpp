@@ -57,12 +57,42 @@ void npy_saver(float data[], int cloud_size, int frame_counter, string map_flag,
 {	    
     string npy_filename;
 
-    if(map_flag == "density")
+    if(map_flag == "density"){
+    	DIR* dir = opendir("density");
+    	if (dir){
+		    // Directory exists
+		    closedir(dir);
+		} else {
+			cout << "Directory 'density' does not exist. Create this directory first." << endl;
+			exit(0);
+		}
+
         npy_filename = "density/density_" + to_string(frame_counter) + ".npy";
-    else if(map_flag == "intensity")
+    }
+    else if(map_flag == "intensity"){
+    	DIR* dir = opendir("intensity");
+    	if (dir){
+		    // Directory exists
+		    closedir(dir);
+		} else {
+			cout << "Directory 'intensity' does not exist. Create this directory first." << endl;
+			exit(0);
+		}
+
         npy_filename = "intensity/intensity_" + to_string(frame_counter) + ".npy";
-    else
+    }
+    else {
+    	DIR* dir = opendir("height");
+    	if (dir){
+		    // Directory exists
+		    closedir(dir);
+		} else {
+			cout << "Directory 'height' does not exist. Create this directory first." << endl;
+			exit(0);
+		}
+
         npy_filename = "height/height_" + to_string(frame_counter) + "_" + to_string(height_level) + ".npy";
+    }
     
     const unsigned int shape[] = {cloud_size, 3};
     cnpy::npy_save(npy_filename, data, shape, 2, "w");
