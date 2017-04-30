@@ -34,9 +34,9 @@ const float x_DIVISION = 0.1;
 const float y_DIVISION = 0.1;
 const float z_DIVISION = 0.4;	// was 0.2 originally
 
-int X_SIZE = (int)((x_MAX-x_MIN)/x_DIVISION)+1;
-int Y_SIZE = (int)((y_MAX-y_MIN)/y_DIVISION)+1;
-int Z_SIZE = (int)((z_MAX-z_MIN)/z_DIVISION)+1;
+int X_SIZE = (int)((x_MAX-x_MIN)/x_DIVISION);	// removed +1
+int Y_SIZE = (int)((y_MAX-y_MIN)/y_DIVISION);
+int Z_SIZE = (int)((z_MAX-z_MIN)/z_DIVISION);
 
 inline int getX(float x)
 {
@@ -53,49 +53,66 @@ inline int getZ(float z)
 	return (int)((z-z_MIN)/z_DIVISION);
 }
 
-void npy_saver(float data[], int cloud_size, int frame_counter, string map_flag, int height_level)
-{	    
-    string npy_filename;
+// void npy_saver(float data[], int cloud_size, int frame_counter, string map_flag, int height_level)
+// {	    
+//     string npy_filename;
 
-    if(map_flag == "density"){
-    	DIR* dir = opendir("density");
-    	if (dir){
-		    // Directory exists
-		    closedir(dir);
-		} else {
-			cout << "Directory 'density' does not exist. Create this directory first." << endl;
-			exit(0);
-		}
+//     if(map_flag == "density"){
+//     	DIR* dir = opendir("density");
+//     	if (dir){
+// 		    // Directory exists
+// 		    closedir(dir);
+// 		} else {
+// 			cout << "Directory 'density' does not exist. Create this directory first." << endl;
+// 			exit(0);
+// 		}
 
-        npy_filename = "density/density_" + to_string(frame_counter) + ".npy";
-    }
-    else if(map_flag == "intensity"){
-    	DIR* dir = opendir("intensity");
-    	if (dir){
-		    // Directory exists
-		    closedir(dir);
-		} else {
-			cout << "Directory 'intensity' does not exist. Create this directory first." << endl;
-			exit(0);
-		}
+//         npy_filename = "density/density_" + to_string(frame_counter) + ".npy";
+//     }
+//     else if(map_flag == "intensity"){
+//     	DIR* dir = opendir("intensity");
+//     	if (dir){
+// 		    // Directory exists
+// 		    closedir(dir);
+// 		} else {
+// 			cout << "Directory 'intensity' does not exist. Create this directory first." << endl;
+// 			exit(0);
+// 		}
 
-        npy_filename = "intensity/intensity_" + to_string(frame_counter) + ".npy";
-    }
-    else {
-    	DIR* dir = opendir("height");
-    	if (dir){
-		    // Directory exists
-		    closedir(dir);
-		} else {
-			cout << "Directory 'height' does not exist. Create this directory first." << endl;
-			exit(0);
-		}
+//         npy_filename = "intensity/intensity_" + to_string(frame_counter) + ".npy";
+//     }
+//     else {
+//     	DIR* dir = opendir("height");
+//     	if (dir){
+// 		    // Directory exists
+// 		    closedir(dir);
+// 		} else {
+// 			cout << "Directory 'height' does not exist. Create this directory first." << endl;
+// 			exit(0);
+// 		}
 
-        npy_filename = "height/height_" + to_string(frame_counter) + "_" + to_string(height_level) + ".npy";
-    }
+//         npy_filename = "height/height_" + to_string(frame_counter) + "_" + to_string(height_level) + ".npy";
+//     }
     
-    const unsigned int shape[] = {cloud_size, 3};
-    cnpy::npy_save(npy_filename, data, shape, 2, "w");
+//     const unsigned int shape[] = {cloud_size, 3};
+//     cnpy::npy_save(npy_filename, data, shape, 2, "w");
+// }
+
+void npy_saver_3d(float data_cube[], int frame_counter)
+{	    
+    string npy_filename = "npy_arrays/" + to_string(frame_counter) + ".npy";
+
+    DIR* dir = opendir("npy_arrays");
+	if (dir){
+	    // Directory exists
+	    closedir(dir);
+	} else {
+		cout << "Directory 'npy_arrays' does not exist. Create this directory first." << endl;
+		exit(0);
+	}
+
+    const unsigned int shape[] = {400, 400, 8};
+    cnpy::npy_save(npy_filename, data_cube, shape, 3, "w");	// The 4th argument is the number of dimensions of the npy array
 }
 
 int main()
@@ -106,7 +123,7 @@ int main()
 	FILE *fp;
 	int frame_counter = 0;
   
-	string velo_dir  = "../2011_09_26_drive_0001_sync/velodyne_points/data/";
+	string velo_dir  = "../2011_09_26_drive_0005_sync/velodyne_points/data/";
 
 	std::cerr << "=== LiDAR Maps Calculation Start ===\n", tt.tic ();
 
@@ -242,14 +259,22 @@ int main()
             density_cloud->at(i).intensity = log(density_cloud->at(i).intensity+1)/log(64);
 
         // not used right now
-		for (int X=0; X<X_SIZE; X++){
-			for (int Y=0; Y<Y_SIZE; Y++){
-				density_map[X][Y] = log(density_map[X][Y]+1)/log(64);
-			}
-		}	
+		// for (int X=0; X<X_SIZE; X++){
+		// 	for (int Y=0; Y<Y_SIZE; Y++){
+		// 		density_map[X][Y] = log(density_map[X][Y]+1)/log(64);
+		// 	}
+		// }	
 		
-		// iterate through each point cloud and save the data in .npy format
+		// iterate through each point cloud and save the data in the data_cube array
 
+		int data_cube_size = X_SIZE * Y_SIZE * (Z_SIZE + 2);
+		float data_cube[data_cube_size];	// dimensions 400x400x8
+
+		// initialize the data cube to be all zeros
+		for(int i = 0; i < data_cube_size; i++){
+			data_cube[i] = 0;
+		}
+			
 		pcl::PointCloud<PointT>::Ptr cloud_demo (new pcl::PointCloud<PointT>);
 
 		for (int k = 0; k<Z_SIZE; k++){
@@ -260,12 +285,20 @@ int main()
 			int data_ctr = 0;
 
 			for(int i = 0; i < cloud_size; i++){
-				height_data[data_ctr++] = cloud_demo->at(i).x;
-				height_data[data_ctr++] = cloud_demo->at(i).y;
-				height_data[data_ctr++] = cloud_demo->at(i).intensity;
+				int x_coord = (int)cloud_demo->at(i).y;
+				int y_coord = (int)cloud_demo->at(i).x;
+				// array_idx equals 400*8*x + 8*y + k where k is the kth 400x400 plane
+				int array_idx = X_SIZE * (Z_SIZE + 2) * x_coord + (Z_SIZE + 2) * y_coord + k;
+				int value = cloud_demo->at(i).intensity;
+
+				data_cube[array_idx] = value;
+
+				// height_data[data_ctr++] = cloud_demo->at(i).x;
+				// height_data[data_ctr++] = cloud_demo->at(i).y;
+				// height_data[data_ctr++] = cloud_demo->at(i).intensity;
 			}
 			// save each height map as a separate .npy file
-			npy_saver(height_data, cloud_size, frame_counter, "height", k);
+			// npy_saver(height_data, cloud_size, frame_counter, "height", k);
 			delete[] height_data;
 		}
 
@@ -275,13 +308,22 @@ int main()
 		int data_ctr = 0;
 
 		for(int i = 0; i < cloud_size; i++){
-			density_data[data_ctr++] = cloud_demo->at(i).x;
-			density_data[data_ctr++] = cloud_demo->at(i).y;
-			density_data[data_ctr++] = cloud_demo->at(i).intensity;
+			int x_coord = (int)cloud_demo->at(i).y;
+			int y_coord = (int)cloud_demo->at(i).x;
+
+			// array_idx equals 400*8*x + 8*y + 6 where 6 is the 6th (starting at 0) 400x400 plane
+			int array_idx = X_SIZE * (Z_SIZE + 2) * x_coord + (Z_SIZE + 2) * y_coord + Z_SIZE;
+			int value = cloud_demo->at(i).intensity;
+
+			data_cube[array_idx] = value;
+
+			// density_data[data_ctr++] = cloud_demo->at(i).x;
+			// density_data[data_ctr++] = cloud_demo->at(i).y;
+			// density_data[data_ctr++] = cloud_demo->at(i).intensity;
 		}
 		
 		// save the density map as a separate .npy file
-		npy_saver(density_data, cloud_size, frame_counter, "density", -1);
+		// npy_saver(density_data, cloud_size, frame_counter, "density", -1);
 		delete[] density_data;
 	
 		*cloud_demo=*intensity_cloud;
@@ -291,14 +333,26 @@ int main()
 		data_ctr = 0;
 
 		for(int i = 0; i < cloud_size; i++){
-			intensity_data[data_ctr++] = cloud_demo->at(i).x;
-			intensity_data[data_ctr++] = cloud_demo->at(i).y;
-			intensity_data[data_ctr++] = cloud_demo->at(i).intensity;
+			int x_coord = (int)cloud_demo->at(i).y;
+			int y_coord = (int)cloud_demo->at(i).x;
+
+			// array_idx equals 400*8*x + 8*y + 7 where 7 is the 7th (starting at 0) 400x400 plane
+			int array_idx = X_SIZE * (Z_SIZE + 2) * x_coord + (Z_SIZE + 2) * y_coord + (Z_SIZE + 1);
+			int value = cloud_demo->at(i).intensity;
+
+			data_cube[array_idx] = value;
+
+			// intensity_data[data_ctr++] = cloud_demo->at(i).x;
+			// intensity_data[data_ctr++] = cloud_demo->at(i).y;
+			// intensity_data[data_ctr++] = cloud_demo->at(i).intensity;
 		}
 		
 		// save the intensity map as a separate .npy file
-		npy_saver(intensity_data, cloud_size, frame_counter, "intensity", -1);
+		// npy_saver(intensity_data, cloud_size, frame_counter, "intensity", -1);
 		delete[] intensity_data;
+
+		// save data_cube as an npy array with dimensions 400x400x8
+		npy_saver_3d(data_cube, frame_counter);
 
 		//update frame counter
 		frame_counter++;		
