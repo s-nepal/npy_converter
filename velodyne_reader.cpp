@@ -34,69 +34,21 @@ const float x_DIVISION = 0.1;
 const float y_DIVISION = 0.1;
 const float z_DIVISION = 0.4;	// was 0.2 originally
 
-int X_SIZE = (int)((x_MAX-x_MIN)/x_DIVISION);	// removed +1
-int Y_SIZE = (int)((y_MAX-y_MIN)/y_DIVISION);
-int Z_SIZE = (int)((z_MAX-z_MIN)/z_DIVISION);
+int X_SIZE = (int)((x_MAX-x_MIN)/x_DIVISION);	// X_SIZE is 400
+int Y_SIZE = (int)((y_MAX-y_MIN)/y_DIVISION);   // Y_SIZE is 400
+int Z_SIZE = (int)((z_MAX-z_MIN)/z_DIVISION);   // Z_SIZE is 6
 
-inline int getX(float x)
-{
+inline int getX(float x){
 	return (int)((x-x_MIN)/x_DIVISION);
 }
 
-inline int getY(float y)
-{
+inline int getY(float y){
 	return (int)((y-y_MIN)/y_DIVISION);
 }
 
-inline int getZ(float z)
-{
+inline int getZ(float z){
 	return (int)((z-z_MIN)/z_DIVISION);
 }
-
-// void npy_saver(float data[], int cloud_size, int frame_counter, string map_flag, int height_level)
-// {	    
-//     string npy_filename;
-
-//     if(map_flag == "density"){
-//     	DIR* dir = opendir("density");
-//     	if (dir){
-// 		    // Directory exists
-// 		    closedir(dir);
-// 		} else {
-// 			cout << "Directory 'density' does not exist. Create this directory first." << endl;
-// 			exit(0);
-// 		}
-
-//         npy_filename = "density/density_" + to_string(frame_counter) + ".npy";
-//     }
-//     else if(map_flag == "intensity"){
-//     	DIR* dir = opendir("intensity");
-//     	if (dir){
-// 		    // Directory exists
-// 		    closedir(dir);
-// 		} else {
-// 			cout << "Directory 'intensity' does not exist. Create this directory first." << endl;
-// 			exit(0);
-// 		}
-
-//         npy_filename = "intensity/intensity_" + to_string(frame_counter) + ".npy";
-//     }
-//     else {
-//     	DIR* dir = opendir("height");
-//     	if (dir){
-// 		    // Directory exists
-// 		    closedir(dir);
-// 		} else {
-// 			cout << "Directory 'height' does not exist. Create this directory first." << endl;
-// 			exit(0);
-// 		}
-
-//         npy_filename = "height/height_" + to_string(frame_counter) + "_" + to_string(height_level) + ".npy";
-//     }
-    
-//     const unsigned int shape[] = {cloud_size, 3};
-//     cnpy::npy_save(npy_filename, data, shape, 2, "w");
-// }
 
 void npy_saver_3d(float data_cube[], int frame_counter)
 {	    
@@ -111,8 +63,8 @@ void npy_saver_3d(float data_cube[], int frame_counter)
 		exit(0);
 	}
 
-    const unsigned int shape[] = {400, 400, 8};
-    cnpy::npy_save(npy_filename, data_cube, shape, 3, "w");	// The 4th argument is the number of dimensions of the npy array
+    const unsigned int shape[] = {X_SIZE, Y_SIZE, Z_SIZE + 2};	// shape is 400x400x8
+    cnpy::npy_save(npy_filename, data_cube, shape, 3, "w");		// The 4th argument is the number of dimensions of the npy array, i.e. 3
 }
 
 int main()
@@ -127,7 +79,6 @@ int main()
 
 	std::cerr << "=== LiDAR Maps Calculation Start ===\n", tt.tic ();
 
-	// while (!viewer->wasStopped ())
 	while(1)
 	{ 
 	    int32_t num = 1000000;
@@ -258,15 +209,6 @@ int main()
 		for (int i=0; i < density_cloud->size(); i++)
             density_cloud->at(i).intensity = log(density_cloud->at(i).intensity+1)/log(64);
 
-        // not used right now
-		// for (int X=0; X<X_SIZE; X++){
-		// 	for (int Y=0; Y<Y_SIZE; Y++){
-		// 		density_map[X][Y] = log(density_map[X][Y]+1)/log(64);
-		// 	}
-		// }	
-		
-		// iterate through each point cloud and save the data in the data_cube array
-
 		int data_cube_size = X_SIZE * Y_SIZE * (Z_SIZE + 2);
 		float data_cube[data_cube_size];	// dimensions 400x400x8
 
@@ -274,82 +216,61 @@ int main()
 		for(int i = 0; i < data_cube_size; i++){
 			data_cube[i] = 0;
 		}
-			
+		
+		// Treat the height maps first
 		pcl::PointCloud<PointT>::Ptr cloud_demo (new pcl::PointCloud<PointT>);
 
 		for (int k = 0; k<Z_SIZE; k++){
 			*cloud_demo = height_cloud_vec[k];
-
 		  	int cloud_size = cloud_demo -> size();
-		  	float *height_data = new float[3 * cloud_size];	// multiplied by 3 bcz. each point has 3 co-ordinates (xyi)
-			int data_ctr = 0;
+			int plane_idx = k;	// because this is the kth plane (starting from zero)
 
 			for(int i = 0; i < cloud_size; i++){
 				int x_coord = (int)cloud_demo->at(i).y;
 				int y_coord = (int)cloud_demo->at(i).x;
-				// array_idx equals 400*8*x + 8*y + k where k is the kth 400x400 plane
-				int array_idx = X_SIZE * (Z_SIZE + 2) * x_coord + (Z_SIZE + 2) * y_coord + k;
+
+				// array_idx equals 400*8*y + 8*x + plane_idx where plane_idx goes from 0 to 5 (for the 6 height maps)
+				// The formula for array_idx below was empirically calculated to fit the exact order in which the cnpy library
+				// populates a 3D array when it is passed a 1D array. The cnpy library starts at the top left corner of
+				// the 3D array and populates the array in the up (z) direction, then across (x) and then below (y)
+				int array_idx = X_SIZE * (Z_SIZE + 2) * y_coord + (Z_SIZE + 2) * x_coord + plane_idx;
 				int value = cloud_demo->at(i).intensity;
 
 				data_cube[array_idx] = value;
-
-				// height_data[data_ctr++] = cloud_demo->at(i).x;
-				// height_data[data_ctr++] = cloud_demo->at(i).y;
-				// height_data[data_ctr++] = cloud_demo->at(i).intensity;
 			}
-			// save each height map as a separate .npy file
-			// npy_saver(height_data, cloud_size, frame_counter, "height", k);
-			delete[] height_data;
 		}
 
+		// Treat the density map
 		*cloud_demo = *density_cloud;
 		int cloud_size = cloud_demo -> size();
-	  	float *density_data = new float[3 * cloud_size];	// multiplied by 3 bcz. each point has 3 co-ordinates (xyi)
-		int data_ctr = 0;
+		int plane_idx = Z_SIZE;	// because this is the 6th plane (starting from zero)
 
 		for(int i = 0; i < cloud_size; i++){
 			int x_coord = (int)cloud_demo->at(i).y;
 			int y_coord = (int)cloud_demo->at(i).x;
 
 			// array_idx equals 400*8*x + 8*y + 6 where 6 is the 6th (starting at 0) 400x400 plane
-			int array_idx = X_SIZE * (Z_SIZE + 2) * x_coord + (Z_SIZE + 2) * y_coord + Z_SIZE;
+			int array_idx = X_SIZE * (Z_SIZE + 2) * y_coord + (Z_SIZE + 2) * x_coord + plane_idx;
 			int value = cloud_demo->at(i).intensity;
 
 			data_cube[array_idx] = value;
-
-			// density_data[data_ctr++] = cloud_demo->at(i).x;
-			// density_data[data_ctr++] = cloud_demo->at(i).y;
-			// density_data[data_ctr++] = cloud_demo->at(i).intensity;
 		}
 		
-		// save the density map as a separate .npy file
-		// npy_saver(density_data, cloud_size, frame_counter, "density", -1);
-		delete[] density_data;
-	
+		// Treat the intensity map
 		*cloud_demo=*intensity_cloud;
-
 		cloud_size = cloud_demo -> size();
-	  	float *intensity_data = new float[3 * cloud_size];	// multiplied by 3 bcz. each point has 3 co-ordinates (xyi)
-		data_ctr = 0;
+		plane_idx = Z_SIZE + 1;	// because this is the 7th plane (starting from zero)
 
 		for(int i = 0; i < cloud_size; i++){
 			int x_coord = (int)cloud_demo->at(i).y;
 			int y_coord = (int)cloud_demo->at(i).x;
 
 			// array_idx equals 400*8*x + 8*y + 7 where 7 is the 7th (starting at 0) 400x400 plane
-			int array_idx = X_SIZE * (Z_SIZE + 2) * x_coord + (Z_SIZE + 2) * y_coord + (Z_SIZE + 1);
+			int array_idx = X_SIZE * (Z_SIZE + 2) * y_coord + (Z_SIZE + 2) * x_coord + plane_idx;
 			int value = cloud_demo->at(i).intensity;
 
 			data_cube[array_idx] = value;
-
-			// intensity_data[data_ctr++] = cloud_demo->at(i).x;
-			// intensity_data[data_ctr++] = cloud_demo->at(i).y;
-			// intensity_data[data_ctr++] = cloud_demo->at(i).intensity;
 		}
-		
-		// save the intensity map as a separate .npy file
-		// npy_saver(intensity_data, cloud_size, frame_counter, "intensity", -1);
-		delete[] intensity_data;
 
 		// save data_cube as an npy array with dimensions 400x400x8
 		npy_saver_3d(data_cube, frame_counter);
