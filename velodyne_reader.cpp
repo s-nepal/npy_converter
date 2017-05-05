@@ -234,7 +234,7 @@ int main()
 				// populates a 3D array when it is passed a 1D array. The cnpy library starts at the top left corner of
 				// the 3D array and populates the array in the up (z) direction, then across (x) and then below (y)
 				int array_idx = X_SIZE * (Z_SIZE + 2) * y_coord + (Z_SIZE + 2) * x_coord + plane_idx;
-				int value = cloud_demo->at(i).intensity;
+				float value = cloud_demo->at(i).intensity;
 
 				data_cube[array_idx] = value;
 			}
@@ -251,7 +251,7 @@ int main()
 
 			// array_idx equals 400*8*x + 8*y + 6 where 6 is the 6th (starting at 0) 400x400 plane
 			int array_idx = X_SIZE * (Z_SIZE + 2) * y_coord + (Z_SIZE + 2) * x_coord + plane_idx;
-			int value = cloud_demo->at(i).intensity;
+			float value = cloud_demo->at(i).intensity;
 
 			data_cube[array_idx] = value;
 		}
@@ -267,7 +267,7 @@ int main()
 
 			// array_idx equals 400*8*x + 8*y + 7 where 7 is the 7th (starting at 0) 400x400 plane
 			int array_idx = X_SIZE * (Z_SIZE + 2) * y_coord + (Z_SIZE + 2) * x_coord + plane_idx;
-			int value = cloud_demo->at(i).intensity;
+			float value = cloud_demo->at(i).intensity;
 
 			data_cube[array_idx] = value;
 		}
